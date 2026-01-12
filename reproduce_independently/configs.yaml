@@ -1,0 +1,5 @@
+defaults:
+
+  logdir: ~/logdir/{timestamp}
+
+  script: train
