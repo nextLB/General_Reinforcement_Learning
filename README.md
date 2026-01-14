@@ -1,6 +1,10 @@
 # 通用式强化学习
 
+## 环境的配置
 
+    conda create -n general_RL python=3.11
+
+    pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 
 
