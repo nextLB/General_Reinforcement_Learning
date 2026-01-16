@@ -37,6 +37,9 @@ class CarRacingEnv:
 
         return state, reward, terminated, truncated, info
 
+    def experience_buffer(self):
+        pass
+
 
 
 
