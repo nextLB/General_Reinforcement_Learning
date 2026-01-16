@@ -1,109 +1,201 @@
-"""
-    游戏 Car Racing
-"""
-
-
-import gymnasium as gym
-
-class CarRacingEnv:
-
-    def __init__(self):
-        self.version = 'V1.0'
-        self.env = None
-
-    def make_env(self):
-        # lap_complete_percent=0.95 完成一圈的百分比
-        #       赛车可能因为轻微偏离赛道而无法100%准确经过所有点
-        #       95%是一个合理的容差，确保AI能获得正奖励
-        # domain_randomize=False 域随机化
-        #       域随机化是提升模型泛化能力的技术
-        # continuous=False 动作连续性
-        #       这个参数控制动作空间是连续的还是离散的
-        self.env = gym.make(
-            "CarRacing-v3",
-            render_mode="rgb_array",
-            lap_complete_percent=0.95,
-            domain_randomize=False,
-            continuous=False)
-
-    def reset_env(self):
-        self.env.reset()
-
-    def get_action_space(self):
-        return self.env.action_space
-
-    def step(self, action):
-        state, reward, terminated, truncated, info = self.env.step(action)
-
-        return state, reward, terminated, truncated, info
-
-    def experience_buffer(self):
-        pass
-
-
-
-
-if __name__ == '__main__':
-    CarRacingEnvInstance = CarRacingEnv()
-
-
-
-
-
-
-# # lap_complete_percent=0.95 完成一圈的百分比
-# #       赛车可能因为轻微偏离赛道而无法100%准确经过所有点
-# #       95%是一个合理的容差，确保AI能获得正奖励
-# # domain_randomize=False 域随机化
-# #       域随机化是提升模型泛化能力的技术
-# # continuous=False 动作连续性
-# #       这个参数控制动作空间是连续的还是离散的
-# env = gym.make(
-#     "CarRacing-v3",
-#     render_mode="rgb_array",
-#     lap_complete_percent=0.95,
-#     domain_randomize=False,
-#     continuous=False)
+# # car_racing.py
+# import gymnasium as gym
+# import random
+# import numpy as np
+# from collections import deque, namedtuple
+# from typing import Optional, List, Tuple
 #
-# print(env.action_space)
+# # 定义经验元组
+# Experience = namedtuple('Experience',
+#     ['state', 'action', 'reward', 'nextState', 'done'])
 #
-# # 开启交互模式
-# plt.ion()   # 重要：开启交互模式，避免阻塞
+# class CarRacingEnvironment:
+#     """Car Racing游戏环境封装类"""
 #
-# # 创建图形窗口
-# fig, ax = plt.subplots(figsize=(6, 6))
-# imgDisplay = ax.imshow(np.zeros((96, 96, 3), dtype=np.uint8))
-# ax.axis('off')  # 隐藏坐标轴
-# plt.title("Car Racing - Real-time Visualization")
+#     def __init__(self, config):
+#         self.config = config
+#         self.env = None
+#         self.replayBuffer = None
+#         self.bufferSize = 0
+#         self.currentState = None
+#         self.isInitialized = False
 #
+#     def initialize(self):
+#         """初始化环境"""
+#         try:
+#             self.env = gym.make(
+#                 self.config.environmentName,
+#                 render_mode=self.config.renderMode,
+#                 lap_complete_percent=self.config.lapCompletePercent,
+#                 domain_randomize=self.config.domainRandomize,
+#                 continuous=self.config.continuous
+#             )
 #
-# env.reset()
-# for i in range(100):
-#     action = i % 5
-#     # 执行一步，获取图像
-#     obs, reward, terminated, truncated, info = env.step(action)
+#             self.currentState, info = self.env.reset()
+#             self.replayBuffer = deque(maxlen=self.config.replayBufferCapacity)
+#             self.isInitialized = True
 #
-#     # 更新图像显示
-#     imgDisplay.set_data(obs)
+#             # 更新配置中的图像尺寸
+#             self.config.height = self.currentState.shape[0]
+#             self.config.width = self.currentState.shape[1]
+#             self.config.channels = self.currentState.shape[2]
 #
-#     # 刷新显示
-#     fig.canvas.draw()
-#     fig.canvas.flush_events()
+#             return self.currentState, info
 #
-#     # 短暂暂停，控制频率（单位:秒）
-#     plt.pause(0.01)     # 大约100 FPS
+#         except Exception as e:
+#             raise RuntimeError(f"环境初始化失败: {e}")
 #
+#     def reset(self) -> Tuple[np.ndarray, dict]:
+#         """重置环境"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
 #
-#     print(terminated)
-#     print(truncated)
+#         try:
+#             self.currentState, info = self.env.reset()
+#             return self.currentState, info
+#         except Exception as e:
+#             raise RuntimeError(f"环境重置失败: {e}")
 #
+#     def getActionSpace(self) -> int:
+#         """获取动作空间大小"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
+#         return self.env.action_space.n
 #
-# # 关闭环境
-# env.close()
+#     def step(self, action: int) -> Tuple[np.ndarray, float, bool, bool, dict]:
+#         """执行动作"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
 #
-# # 关闭交互模式，显示最终窗口
-# plt.ioff()
-# plt.show()
-
-
-
+#         try:
+#             nextState, reward, terminated, truncated, info = self.env.step(action)
+#             done = terminated or truncated
+#             self.currentState = nextState
+#             return nextState, reward, terminated, truncated, info
+#         except Exception as e:
+#             raise RuntimeError(f"执行动作失败: {e}")
+#
+#     def render(self):
+#         """渲染环境（用于可视化）"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
+#         return self.env.render()
+#
+#     def close(self):
+#         """关闭环境"""
+#         if self.env:
+#             self.env.close()
+#             self.isInitialized = False
+#
+#     def storeExperience(self, experience: Experience):
+#         """存储经验到回放缓冲区"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
+#
+#         self.replayBuffer.append(experience)
+#         self.bufferSize = len(self.replayBuffer)
+#
+#     def sampleBatch(self, batchSize: int) -> Optional[Tuple]:
+#         """从回放缓冲区采样批次"""
+#         if not self.isInitialized:
+#             raise RuntimeError("环境未初始化")
+#
+#         if self.bufferSize < batchSize:
+#             return None
+#
+#         try:
+#             batch = random.sample(self.replayBuffer, batchSize)
+#
+#             # 解包批次数据
+#             states = np.array([exp.state for exp in batch], dtype=np.float32)
+#             actions = np.array([exp.action for exp in batch], dtype=np.int64)
+#             rewards = np.array([exp.reward for exp in batch], dtype=np.float32)
+#             nextStates = np.array([exp.nextState for exp in batch], dtype=np.float32)
+#             dones = np.array([exp.done for exp in batch], dtype=np.float32)
+#
+#             return states, actions, rewards, nextStates, dones
+#
+#         except Exception as e:
+#             print(f"批次采样失败: {e}")
+#             return None
+#
+#     def getBufferSize(self) -> int:
+#         """获取当前缓冲区大小"""
+#         return self.bufferSize
+#
+#     def getCurrentState(self) -> np.ndarray:
+#         """获取当前状态"""
+#         return self.currentState
+#
+#     def preprocessState(self, state: np.ndarray) -> np.ndarray:
+#         """预处理状态（可选，如归一化）"""
+#         if state is None:
+#             return None
+#
+#         # 简单归一化到[0, 1]
+#         processed = state.astype(np.float32) / 255.0
+#
+#         # 调整维度顺序：HWC -> CHW
+#         if len(processed.shape) == 3 and processed.shape[2] == 3:
+#             processed = np.transpose(processed, (2, 0, 1))
+#
+#         return processed
+#
+#     def getStateShape(self) -> tuple:
+#         """获取状态形状"""
+#         if not self.isInitialized:
+#             return None
+#         return self.currentState.shape
+#
+#     def getNumActions(self) -> int:
+#         """获取动作数量"""
+#         if not self.isInitialized:
+#             return 0
+#         return self.env.action_space.n
+#
+#     def validateAction(self, action: int) -> bool:
+#         """验证动作是否有效"""
+#         if not self.isInitialized:
+#             return False
+#         return 0 <= action < self.env.action_space.n
+#
+# class ExperienceReplayBuffer:
+#     """经验回放缓冲区（独立版本，可选使用）"""
+#
+#     def __init__(self, capacity):
+#         self.capacity = capacity
+#         self.buffer = deque(maxlen=capacity)
+#         self.size = 0
+#
+#     def add(self, experience: Experience):
+#         """添加经验"""
+#         self.buffer.append(experience)
+#         self.size = len(self.buffer)
+#
+#     def sample(self, batchSize: int) -> Optional[Tuple]:
+#         """采样批次"""
+#         if self.size < batchSize:
+#             return None
+#
+#         batch = random.sample(self.buffer, batchSize)
+#
+#         states = np.array([exp.state for exp in batch], dtype=np.float32)
+#         actions = np.array([exp.action for exp in batch], dtype=np.int64)
+#         rewards = np.array([exp.reward for exp in batch], dtype=np.float32)
+#         nextStates = np.array([exp.nextState for exp in batch], dtype=np.float32)
+#         dones = np.array([exp.done for exp in batch], dtype=np.float32)
+#
+#         return states, actions, rewards, nextStates, dones
+#
+#     def clear(self):
+#         """清空缓冲区"""
+#         self.buffer.clear()
+#         self.size = 0
+#
+#     def getSize(self) -> int:
+#         """获取缓冲区大小"""
+#         return self.size
+#
+#     def isFull(self) -> bool:
+#         """检查缓冲区是否已满"""
+#         return self.size >= self.capacity
