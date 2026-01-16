@@ -6,9 +6,13 @@
 
     pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
+    pip install gymnasium
 
+    pip install gym
 
+    pip install gymnasium[box2d]
 
+    pip install Pillow matplotlib
 
 
 ## 关于显存使用的查看
