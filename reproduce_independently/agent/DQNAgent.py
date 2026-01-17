@@ -1,4 +1,6 @@
 
+import sys
+sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 import torch
 from reproduce_independently.envs.car_racing import CarRacingEnvironment
 
@@ -29,11 +31,17 @@ class DQNAgent:
         self.device = torch.device(config.device)
 
         # 初始化
+        self._initializeEnvironment()
 
 
     # 初始化环境
-    def __initializeEnvironment(self):
-        pass
+    def _initializeEnvironment(self):
+        try:
+            self.environment = CarRacingEnvironment(self.config)
+            initialState, info = self.environment.initialize()
+            self.actionSpace = self.environment.getActionSpace()
+        except Exception as e:
+            raise RuntimeError()
 
 
 

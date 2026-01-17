@@ -191,7 +191,7 @@ class Trainer:
         self.logger = TrainingLogger(self.saveDir)
 
         # 初始化智能体
-        self.agent = DQNAgent(self)
+        self.agent = DQNAgent(self.config)
 
         # 打印训练信息
         self._printTrainingInfo()

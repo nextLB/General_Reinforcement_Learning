@@ -1,4 +1,9 @@
 
+import gymnasium as gym
+from collections import deque, namedtuple
+
+# 定义经验元组
+Experience = namedtuple('Experience', ['state', 'action', 'reward', 'nextState', 'done'])
 
 
 class CarRacingEnvironment:
@@ -11,7 +16,83 @@ class CarRacingEnvironment:
         self.isInitialized = False
 
 
+    # 初始化环境
+    def initialize(self):
+        try:
+            self.env = gym.make(
+                self.config.environmentName,
+                render_mode=self.config.renderMode,
+                lap_complete_percent=self.config.lapCompletePercent,
+                domain_randomize=self.config.domainRandomize,
+                continuous=self.config.continuous
+            )
 
+            self.currentState, info = self.env.reset()
+            self.replayBuffer = deque(maxlen=self.config.replayBufferCapacity)
+            self.isInitialized = True
+
+            # 更新配置中的图像尺寸
+            self.config.height = self.currentState.shape[0]
+            self.config.width = self.currentState.shape[1]
+            self.config.channels = self.currentState.shape[2]
+
+            return self.currentState, info
+
+        except Exception as e:
+            raise RuntimeError(f"环境初始化失败：{e}")
+
+
+    # 重置环境
+    def reset(self):
+        if not self.isInitialized:
+            raise RuntimeError('环境未初始化')
+
+        try:
+            self.currentState, info = self.env.reset()
+            return self.currentState, info
+        except Exception as e:
+            raise RuntimeError(f"环境重置失败: {e}")
+
+    # 获取动作空间大小
+    def getActionSpace(self):
+        if not self.isInitialized:
+            raise RuntimeError('环境未初始化')
+        return self.env.action_space.n
+
+    # 执行动作
+    def step(self, action):
+        if not self.isInitialized:
+            raise RuntimeError("环境未初始化")
+
+        try:
+            nextState, reward, terminated, truncated, info = self.env.step(action)
+            done = terminated or truncated
+            self.currentState = nextState
+            return nextState, reward, terminated, truncated, info
+        except Exception as e:
+            raise RuntimeError(f"执行动作失败: {e}")
+
+
+    # 渲染环境  用于可视化
+    def render(self):
+        if not self.isInitialized:
+            raise RuntimeError("环境初始化")
+        return self.env.render()
+
+    # 关闭环境
+    def close(self):
+        if self.env:
+            self.env.close()
+            self.isInitialized = False
+
+
+    # 存储经验到回放缓冲区
+    def storeExperience(self, experience):
+        if not self.isInitialized:
+            raise RuntimeError("环境未初始化")
+
+        self.replayBuffer.append(experience)
+        self.bufferSize = len(self.replayBuffer)
 
 
 
