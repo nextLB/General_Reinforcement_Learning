@@ -3,6 +3,8 @@ import sys
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 import torch
 from reproduce_independently.envs.car_racing import CarRacingEnvironment
+import torch.nn as nn
+import torch.optim as optim
 
 
 class DQNAgent:
@@ -32,6 +34,8 @@ class DQNAgent:
 
         # 初始化
         self._initializeEnvironment()
+        self._initializeNetworks()
+        self._initializeOptimizer()
 
 
 
@@ -48,7 +52,16 @@ class DQNAgent:
     # 初始化网络
     def _initializeNetworks(self):
         inputShape = (self.config.channels, self.config.height, self.config.width)
+        try:
+            # 策略网络
+            pass
+        except Exception as e:
+            raise RuntimeError(f"网络初始化失败: {e}")
 
+
+    # 初始化优化器
+    def _initializeOptimizer(self):
+        pass
 
 
 
