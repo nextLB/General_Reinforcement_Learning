@@ -34,6 +34,7 @@ class DQNAgent:
         self._initializeEnvironment()
 
 
+
     # 初始化环境
     def _initializeEnvironment(self):
         try:
@@ -44,6 +45,9 @@ class DQNAgent:
             raise RuntimeError()
 
 
+    # 初始化网络
+    def _initializeNetworks(self):
+        inputShape = (self.config.channels, self.config.height, self.config.width)
 
 
 

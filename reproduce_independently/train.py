@@ -201,7 +201,26 @@ class Trainer:
 
     # 执行训练
     def train(self):
-        pass
+        print("开始训练...")
+        startTime = time.time()
+
+        try:
+            for episode in range(1, self.config.totalEpisodes + 1):
+                episodeStartTime = time.time()
+
+                # 训练一个回合
+                totalReward, averageLoss = self.agent.trainEpisode()
+
+
+
+
+        except KeyboardInterrupt:
+            print("\n训练被用户中断")
+            self._saveInterruptedTraining(startTime)
+        except Exception as e:
+            print(f"\n训练过程中发生错误: {e}")
+
+
 
 
 
