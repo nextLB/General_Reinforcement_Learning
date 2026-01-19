@@ -1,6 +1,8 @@
 
 import gymnasium as gym
 from collections import deque, namedtuple
+import random
+import numpy as np
 
 # 定义经验元组
 Experience = namedtuple('Experience', ['state', 'action', 'reward', 'nextState', 'done'])
@@ -94,6 +96,72 @@ class CarRacingEnvironment:
         self.replayBuffer.append(experience)
         self.bufferSize = len(self.replayBuffer)
 
-    # 从
+
+    # 从回放缓冲区采样批次
+    def sampleBatch(self, batchSize):
+        if not self.isInitialized:
+            raise RuntimeError("环境未初始化")
+
+        if self.bufferSize < batchSize:
+            return None
+
+        try:
+            batch = random.sample(self.replayBuffer, batchSize)
+
+            # 解包批次数据
+            states = np.array([exp.state for exp in batch], dtype=np.float32)
+            actions = np.array([exp.action for exp in batch], dtype=np.int64)
+            rewards = np.array([exp.reward for exp in batch], dtype=np.float32)
+            nextStates = np.array([exp.nextState for exp in batch], dtype=np.float32)
+            dones = np.array([exp.done for exp in batch], dtype=np.float32)
+
+            return states, actions, rewards, nextStates, dones
+
+        except Exception as e:
+            return None
+
+
+    # 获取当前缓冲区大小
+    def getBufferSize(self):
+        return self.bufferSize
+
+    # 获取当前状态
+    def getCurrentState(self):
+        return self.currentState
+
+    # 预处理状态
+    def preprocessState(self, state):
+        if state is None:
+            return None
+
+        # 简单归一化到[0, 1]
+        processed = state.astype(np.float32) / 255.0
+
+        # 调整维度顺序: HWC -> CHW
+        if len(processed.shape) == 3 and processed.shape[2] == 3:
+            processed = np.transpose(processed, (2, 0, 1))
+
+        return processed
+
+    # 获取状态形状
+    def getStateShape(self):
+        if not self.isInitialized:
+            return None
+
+        return self.currentState.shape
+
+    # 获取动作数量
+    def getNumActions(self):
+        if not self.isInitialized:
+            return 0
+        return self.env.action_space.n
+
+    # 验证动作是否有效
+    def validateAction(self, action):
+        if not self.isInitialized:
+            return False
+        return 0 <= action < self.env.action_space.n
+
+
 
 

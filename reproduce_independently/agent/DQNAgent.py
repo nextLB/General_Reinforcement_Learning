@@ -1,4 +1,4 @@
-
+import random
 import sys
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 import torch
@@ -62,6 +62,29 @@ class DQNAgent:
     # 初始化优化器
     def _initializeOptimizer(self):
         pass
+
+
+    # 训练一个完整回合
+    def trainEpisode(self):
+        state, info = self.environment.reset()
+        episodeReward = 0
+        episodeLosses = []
+        done = False
+
+        while not done:
+            # 选择动作
+            action = self.selectAction(state, True)
+
+
+    # 使用epsilon-greedy策略选择动作
+    def selectAction(self, state, trainingMode):
+        # 探索：随机动作
+        if trainingMode and random.random() < self.epsilon:
+            return random.randrange(self.actionSpace)
+        # 利用: 选择Q值最大的动作
+        else:
+            pass
+
 
 
 
