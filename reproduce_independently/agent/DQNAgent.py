@@ -10,6 +10,9 @@ import torch.nn as nn
 import torch.optim as optim
 from reproduce_independently.network.DQN import DQNNetwork
 
+import matplotlib.pyplot as plt
+
+
 
 class DQNAgent:
     def __init__(self, config):
@@ -40,6 +43,8 @@ class DQNAgent:
         self._initializeEnvironment()
         self._initializeNetworks()
         self._initializeOptimizer()
+
+
 
 
 
@@ -81,12 +86,16 @@ class DQNAgent:
         self.criterion = nn.SmoothL1Loss()
 
 
+
+
     # 训练一个完整回合
     def trainEpisode(self):
         state, info = self.environment.reset()
         episodeReward = 0
         episodeLosses = []
         done = False
+
+        plt.figure(figsize=(8, 6))
 
         while not done:
             # 选择动作
@@ -95,6 +104,29 @@ class DQNAgent:
             # 执行动作
             nextState, reward, terminated, truncated, info = self.environment.step(action)
             done = terminated or truncated
+
+            # ================================= #
+            # ================================= #
+            # ================================= #
+            if len(nextState.shape) == 3:
+                if nextState.shape[0] == 3:
+                    nextState = nextState.transpose(1, 2, 0)
+
+            # 显示图像
+            plt.imshow(nextState)
+            plt.title('Game State', fontsize=14)
+            plt.xlabel('Width', fontsize=12)
+            plt.ylabel('Height', fontsize=12)
+            plt.colorbar(label='Pixel Value')
+
+            plt.tight_layout()
+            plt.show()
+            # plt.pause(0.001)  # 短暂暂停，让图形显示
+            # plt.clf()  # 清除当前图形，为下一帧做准备
+
+            # ================================= #
+            # ================================= #
+            # ================================= #
 
             # 存储经验
             experience = Experience(state, action, reward, nextState, done)
@@ -106,7 +138,6 @@ class DQNAgent:
 
             # 训练模型
             loss = self.trainStep()
-            print(f'loss: {loss}')
             if loss is not None:
                 episodeLosses.append(loss)
 
@@ -264,3 +295,19 @@ class DQNAgent:
         self.epsilon = originalEpsilon
 
         return float(totalValidationReward / numEpisodes)
+
+
+    def saveModel(self, filePath: str):
+        """保存模型"""
+        checkpoint = {
+            'policy_network_state_dict': self.policyNetwork.state_dict(),
+            'target_network_state_dict': self.targetNetwork.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'epsilon': float(self.epsilon),
+            'step_count': self.stepCount,
+            'episode_count': self.episodeCount,
+            'config': self.config.toDict()
+        }
+
+        torch.save(checkpoint, filePath)
+        print(f"模型已保存到: {filePath}")

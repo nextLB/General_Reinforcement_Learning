@@ -22,9 +22,9 @@ class Config:
         self.continuous = False
 
         # 训练参数
-        self.totalEpisodes = 100
-        self.saveFrequency = 10
-        self.validationFrequency = 5
+        self.totalEpisodes = 2000
+        self.saveFrequency = 50
+        self.validationFrequency = 10
 
         # DQN超参数
         self.gamma = 0.99
@@ -34,7 +34,7 @@ class Config:
         self.learningRate = 1e-4
 
         # 经验回放参数
-        self.replayBufferCapacity = 10000
+        self.replayBufferCapacity = 30000
         self.batchSize = 8
 
         # 目标网络更新
