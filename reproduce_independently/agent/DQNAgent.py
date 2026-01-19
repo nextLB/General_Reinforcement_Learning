@@ -95,6 +95,7 @@ class DQNAgent:
         episodeLosses = []
         done = False
 
+        plt.ion()
         plt.figure(figsize=(8, 6))
 
         while not done:
@@ -103,7 +104,9 @@ class DQNAgent:
 
             # 执行动作
             nextState, reward, terminated, truncated, info = self.environment.step(action)
+            print(terminated, truncated)
             done = terminated or truncated
+            # done = terminated
 
             # ================================= #
             # ================================= #
@@ -121,8 +124,8 @@ class DQNAgent:
 
             plt.tight_layout()
             plt.show()
-            # plt.pause(0.001)  # 短暂暂停，让图形显示
-            # plt.clf()  # 清除当前图形，为下一帧做准备
+            plt.pause(0.001)  # 短暂暂停，让图形显示
+            plt.clf()  # 清除当前图形，为下一帧做准备
 
             # ================================= #
             # ================================= #

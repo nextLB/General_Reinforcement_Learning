@@ -35,7 +35,7 @@ class Config:
 
         # 经验回放参数
         self.replayBufferCapacity = 30000
-        self.batchSize = 8
+        self.batchSize = 32
 
         # 目标网络更新
         self.targetBufferCapacity = 100
