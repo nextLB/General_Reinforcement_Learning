@@ -1,10 +1,14 @@
 import random
 import sys
+
+import numpy as np
+
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 import torch
-from reproduce_independently.envs.car_racing import CarRacingEnvironment
+from reproduce_independently.envs.car_racing import CarRacingEnvironment, Experience
 import torch.nn as nn
 import torch.optim as optim
+from reproduce_independently.network.DQN import DQNNetwork
 
 
 class DQNAgent:
@@ -54,14 +58,27 @@ class DQNAgent:
         inputShape = (self.config.channels, self.config.height, self.config.width)
         try:
             # 策略网络
-            pass
+            self.policyNetwork = DQNNetwork(inputShape, self.actionSpace, True).to(self.device)
+
+            # 目标网络
+            self.targetNetwork = DQNNetwork(inputShape, self.actionSpace, True).to(self.device)
+            self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
+            self.targetNetwork.eval()
+
         except Exception as e:
             raise RuntimeError(f"网络初始化失败: {e}")
 
 
     # 初始化优化器
     def _initializeOptimizer(self):
-        pass
+        self.optimizer = optim.Adam(
+            self.policyNetwork.parameters(),
+            lr=self.config.learningRate,
+            eps=1e-8
+        )
+
+        # 使用Huber损失，对异常值更鲁棒
+        self.criterion = nn.SmoothL1Loss()
 
 
     # 训练一个完整回合
@@ -75,6 +92,36 @@ class DQNAgent:
             # 选择动作
             action = self.selectAction(state, True)
 
+            # 执行动作
+            nextState, reward, terminated, truncated, info = self.environment.step(action)
+            done = terminated or truncated
+
+            # 存储经验
+            experience = Experience(state, action, reward, nextState, done)
+            self.environment.storeExperience(experience)
+
+            # 更新状态
+            state = nextState
+            episodeReward += reward
+
+            # 训练模型
+            loss = self.trainStep()
+            print(f'loss: {loss}')
+            if loss is not None:
+                episodeLosses.append(loss)
+
+
+        # 更新探索率
+        self.updateEpsilon()
+        self.episodeCount += 1
+
+        # 计算平均损失
+        avgLoss = np.mean(episodeLosses) if episodeLosses else None
+        print(self.environment.getBufferSize(), self.batchSize, avgLoss)
+        return float(episodeReward), float(avgLoss) if avgLoss is not None else None
+
+
+
 
     # 使用epsilon-greedy策略选择动作
     def selectAction(self, state, trainingMode):
@@ -83,10 +130,137 @@ class DQNAgent:
             return random.randrange(self.actionSpace)
         # 利用: 选择Q值最大的动作
         else:
-            pass
+            return self._selectGreedyAction(state)
+
+
+    # 预处理状态
+    def _preprocessState(self, state):
+        if not isinstance(state, np.ndarray):
+            raise ValueError(f"状态应为numpy数组，实际为: {type(state)}")
+
+        # 复制数据避免修改原始状态
+        state = state.copy()
+
+        # 归一化
+        if state.dtype != np.float32:
+            state = state.astype(np.float32) / 255.0
+
+        # 调整维度顺序: HWC -> CHW
+        if len(state.shape) == 3 and state.shape[2] == 3:
+            state = np.transpose(state, (2, 0, 1))
+        elif len(state.shape) == 4 and state.shape[3] == 3:
+            state = np.transpose(state, (0, 3, 1, 2))
+
+        # 转换为张量
+        return torch.FloatTensor(state)
+
+    # 选择贪婪动作
+    def _selectGreedyAction(self, state):
+        with torch.no_grad():
+            stateTensor = self._preprocessState(state).to(self.device)
+            qValues = self.policyNetwork(stateTensor)
+            return qValues.argmax().item()
 
 
 
+    # 执行单步训练
+    def trainStep(self):
+        if self.environment.getBufferSize() < self.batchSize:
+            return None
+
+        # 采样批次
+        try:
+            batch = self.environment.sampleBatch(self.batchSize)
+            if batch is None:
+                return None
+
+            states, actions, rewards, nextStates, dones = batch
+
+            # 转换为张量
+            statesTensor = self._preprocessState(states).to(self.device)
+            actionsTensor = torch.LongTensor(actions).unsqueeze(1).to(self.device)
+            rewardsTensor = torch.FloatTensor(rewards).unsqueeze(1).to(self.device)
+            nextStatesTensor = self._preprocessState(nextStates).to(self.device)
+            donesTensor = torch.FloatTensor(dones).unsqueeze(1).to(self.device)
+
+            # 计算当前Q值
+            currentQValues = self.policyNetwork(statesTensor).gather(1, actionsTensor)
+
+            # 计算目标Q值
+            with torch.no_grad():
+                nextQValues = self.targetNetwork(nextStatesTensor).max(1)[0].unsqueeze(1)
+                targetQValues = rewardsTensor + (self.gamma * nextQValues * (1 - donesTensor))
+
+            # 计算损失
+            loss = self.criterion(currentQValues, targetQValues)
+
+            # 反向传播
+            self.optimizer.zero_grad()
+            loss.backward()
+
+            # 梯度裁剪
+            nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), max_norm=1.0)
+
+            self.optimizer.step()
+
+            # 更新目标网络
+            self._updateTargetNetwork()
+
+            return loss.item()
 
 
 
+        except Exception as e:
+            return None
+
+
+
+    # 更新目标网络
+    def _updateTargetNetwork(self):
+        self.stepCount += 1
+
+        # 软更新或硬更新
+        if self.config.tau > 0:
+            # 软更新
+            for targetParam, policyParam in zip(
+                    self.targetNetwork.parameters(),
+                    self.policyNetwork.parameters()
+            ):
+                targetParam.data.copy_(
+                    self.config.tau * policyParam.data +
+                    (1 - self.config.tau) * targetParam.data
+                )
+        elif self.stepCount % self.config.targetUpdateFrequency == 0:
+            # 硬更新
+            self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
+
+
+    # 更新探索率
+    def updateEpsilon(self):
+        self.epsilon = max(self.epsilonEnd, self.epsilon * self.epsilonDecay)
+
+
+    def validate(self, numEpisodes: int = 1) -> float:
+        """验证模型性能"""
+        originalEpsilon = self.epsilon
+        self.epsilon = 0.0  # 验证时使用纯贪婪策略
+
+        totalValidationReward = 0
+
+        for _ in range(numEpisodes):
+            state, info = self.environment.reset()
+            episodeReward = 0
+            done = False
+
+            while not done:
+                action = self.selectAction(state, trainingMode=False)
+                state, reward, terminated, truncated, info = self.environment.step(action)
+                done = terminated or truncated
+                episodeReward += reward
+
+            totalValidationReward += episodeReward
+
+        # 恢复探索率
+        self.epsilon = originalEpsilon
+
+        return float(totalValidationReward / numEpisodes)

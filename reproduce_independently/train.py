@@ -211,7 +211,25 @@ class Trainer:
                 # 训练一个回合
                 totalReward, averageLoss = self.agent.trainEpisode()
 
+                episodeTime = time.time() - episodeStartTime
 
+                # 记录训练结果
+                self.logger.logEpisode(
+                    episode, totalReward, averageLoss,
+                    self.agent.epsilon, episodeTime
+                )
+
+                # 定期保存模型
+                if episode % self.config.saveFrequency == 0:
+                    self._saveModel(episode)
+
+                # 定期验证
+                if episode % self.config.validationFrequency == 0:
+                    self._validateModel(episode)
+
+            # 训练完成
+            totalTime = time.time() - startTime
+            self._completeTraining(totalTime)
 
 
         except KeyboardInterrupt:
@@ -249,7 +267,7 @@ class Trainer:
         except Exception as e:
             print(f"验证回合 {episode} 失败: {e}")
     # 完成训练
-    def _complateTraining(self, totalTime):
+    def _completeTraining(self, totalTime):
         """完成训练"""
         print("\n" + "=" * 60)
         print("训练完成!")
