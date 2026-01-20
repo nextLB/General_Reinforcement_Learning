@@ -14,6 +14,7 @@
 
     pip install Pillow matplotlib
 
+    pip install opencv-python
 
 
 

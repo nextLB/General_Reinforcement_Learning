@@ -36,7 +36,9 @@ class CarRacingEnvironment:
             # 更新配置中的图像尺寸
             self.config.height = self.currentState.shape[0]
             self.config.width = self.currentState.shape[1]
-            self.config.channels = self.currentState.shape[2]
+            # self.config.channels = self.currentState.shape[2]
+            # 使用灰度图处理
+            self.config.channels = 1
 
             return self.currentState, info
 

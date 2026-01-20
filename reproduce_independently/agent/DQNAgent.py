@@ -11,6 +11,8 @@ import torch.optim as optim
 from reproduce_independently.network.DQN import DQNNetwork
 
 import matplotlib.pyplot as plt
+import cv2
+import copy
 
 
 
@@ -61,6 +63,7 @@ class DQNAgent:
     # 初始化网络
     def _initializeNetworks(self):
         inputShape = (self.config.channels, self.config.height, self.config.width)
+
         try:
             # 策略网络
             self.policyNetwork = DQNNetwork(inputShape, self.actionSpace, True).to(self.device)
@@ -79,18 +82,18 @@ class DQNAgent:
         self.optimizer = optim.Adam(
             self.policyNetwork.parameters(),
             lr=self.config.learningRate,
-            eps=1e-8
+            weight_decay=1e-5  # L2正则化
         )
 
-        # 添加学习率调度器
-        self.scheduler = optim.lr_scheduler.StepLR(
+        # 余弦退火学习率调度器
+        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
             self.optimizer,
-            step_size=100,
-            gamma=0.9
+            T_max=self.config.totalEpisodes // 10,
+            eta_min=1e-6
         )
 
-        # 使用Huber损失，对异常值更鲁棒
-        self.criterion = nn.SmoothL1Loss()
+        # Huber损失，更稳定
+        self.criterion = nn.SmoothL1Loss(beta=0.5)
 
 
 
@@ -148,6 +151,7 @@ class DQNAgent:
 
             # 训练模型
             loss = self.trainStep()
+
             if loss is not None:
                 episodeLosses.append(loss)
 
@@ -182,15 +186,24 @@ class DQNAgent:
         # 复制数据避免修改原始状态
         state = state.copy()
 
+        # 转换为灰度图
+        grayStates = []
+        for i in range(state.shape[0]):
+            grayImg = cv2.cvtColor(state[i], cv2.COLOR_RGB2GRAY)
+            grayStates.append(copy.deepcopy(grayImg))
+
+        state = np.array(grayStates)
+
         # 归一化
         if state.dtype != np.float32:
             state = state.astype(np.float32) / 255.0
 
-        # 调整维度顺序: HWC -> CHW
-        if len(state.shape) == 3 and state.shape[2] == 3:
-            state = np.transpose(state, (2, 0, 1))
-        elif len(state.shape) == 4 and state.shape[3] == 3:
-            state = np.transpose(state, (0, 3, 1, 2))
+        # 转换通道顺序为pytorch模型可以输入的
+        # 当前状态形状: [batch_size, height, width]
+        # PyTorch期望的形状: [batch_size, channels, height, width]
+        if len(state.shape) == 3:
+            # 单通道图像: 添加通道维度
+            state = np.expand_dims(state, axis=1)
 
         # 转换为张量
         return torch.FloatTensor(state)
@@ -229,8 +242,6 @@ class DQNAgent:
 
             # 计算目标Q值
             with torch.no_grad():
-                # nextQValues = self.targetNetwork(nextStatesTensor).max(1)[0].unsqueeze(1)
-                # targetQValues = rewardsTensor + (self.gamma * nextQValues * (1 - donesTensor))
                 # 使用policy网络选择动作
                 nextActions = self.policyNetwork(nextStatesTensor).argmax(1, keepdim=True)
                 # 使用target网络评估Q值

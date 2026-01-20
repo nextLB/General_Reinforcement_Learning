@@ -22,7 +22,7 @@ class Config:
         self.continuous = False
 
         # 训练参数
-        self.totalEpisodes = 2000
+        self.totalEpisodes = 200
         self.saveFrequency = 50
         self.validationFrequency = 10
 
@@ -35,10 +35,10 @@ class Config:
 
         # 经验回放参数
         self.replayBufferCapacity = 30000
-        self.batchSize = 32
+        self.batchSize = 64
 
         # 目标网络更新
-        self.targetBufferCapacity = 100
+        self.targetBufferCapacity = 10
         self.tau = 0.005    # 软更新参数
 
         # 设备配置（使用字符串表示，JSON可序列化）
