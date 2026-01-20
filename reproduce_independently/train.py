@@ -30,8 +30,8 @@ class Config:
         self.gamma = 0.99
         self.epsilonStart = 1.0
         self.epsilonEnd = 0.01
-        self.epsilonDecay = 0.995
-        self.learningRate = 1e-4
+        self.epsilonDecay = 0.998
+        self.learningRate = 1e-5
 
         # 经验回放参数
         self.replayBufferCapacity = 30000

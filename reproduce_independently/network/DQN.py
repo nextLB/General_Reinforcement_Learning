@@ -14,22 +14,25 @@ class DQNNetwork(nn.Module):
         self.numActions = numActions
         self.useBatchNorm = useBatchNorm
 
-        # 卷积层配置
+        # 改进的卷积层
         self.convLayers = nn.Sequential(
-            # 第一层卷积
-            nn.Conv2d(inputShape[0], 32, kernel_size=8, stride=4),
+            nn.Conv2d(inputShape[0], 32, kernel_size=5, stride=2),
             nn.BatchNorm2d(32) if useBatchNorm else nn.Identity(),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
 
-            # 第二层卷积
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2),
             nn.BatchNorm2d(64) if useBatchNorm else nn.Identity(),
-            nn.ReLU(inplace=True),
+            nn.ReLU(),
 
-            # 第三层卷积
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.BatchNorm2d(64) if useBatchNorm else nn.Identity(),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(64, 128, kernel_size=3, stride=2),
+            nn.BatchNorm2d(128) if useBatchNorm else nn.Identity(),
+            nn.ReLU(),
+
+            nn.Conv2d(128, 256, kernel_size=3, stride=1),
+            nn.BatchNorm2d(256) if useBatchNorm else nn.Identity(),
+            nn.ReLU(),
+
+            nn.AdaptiveAvgPool2d((4, 4))  # 自适应池化
         )
 
         # 计算卷积层输出维度
@@ -62,18 +65,14 @@ class DQNNetwork(nn.Module):
 
     # 初始化网络权重
     def _initializeWeights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d):
-                nn.init.kaiming_normal_(module.weight, mode='fan_out', nonlinearity='relu')
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
-            elif isinstance(module, nn.BatchNorm2d):
-                nn.init.constant_(module.weight, 1)
-                nn.init.constant_(module.bias, 0)
-            elif isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
+        for m in self.modules():
+            if isinstance(m, (nn.Conv2d, nn.Linear)):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, (nn.BatchNorm2d, nn.LayerNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
 
     # 获取特征维度
     def getFeatureSize(self):

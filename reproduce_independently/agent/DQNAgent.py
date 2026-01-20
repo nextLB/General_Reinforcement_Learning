@@ -82,6 +82,13 @@ class DQNAgent:
             eps=1e-8
         )
 
+        # 添加学习率调度器
+        self.scheduler = optim.lr_scheduler.StepLR(
+            self.optimizer,
+            step_size=100,
+            gamma=0.9
+        )
+
         # 使用Huber损失，对异常值更鲁棒
         self.criterion = nn.SmoothL1Loss()
 
@@ -95,8 +102,8 @@ class DQNAgent:
         episodeLosses = []
         done = False
 
-        plt.ion()
-        plt.figure(figsize=(8, 6))
+        # plt.ion()
+        # plt.figure(figsize=(8, 6))
 
         while not done:
             # 选择动作
@@ -104,32 +111,32 @@ class DQNAgent:
 
             # 执行动作
             nextState, reward, terminated, truncated, info = self.environment.step(action)
-            print(terminated, truncated)
+            # print(terminated, truncated)
             done = terminated or truncated
-            # done = terminated
 
-            # ================================= #
-            # ================================= #
-            # ================================= #
-            if len(nextState.shape) == 3:
-                if nextState.shape[0] == 3:
-                    nextState = nextState.transpose(1, 2, 0)
 
-            # 显示图像
-            plt.imshow(nextState)
-            plt.title('Game State', fontsize=14)
-            plt.xlabel('Width', fontsize=12)
-            plt.ylabel('Height', fontsize=12)
-            plt.colorbar(label='Pixel Value')
-
-            plt.tight_layout()
-            plt.show()
-            plt.pause(0.001)  # 短暂暂停，让图形显示
-            plt.clf()  # 清除当前图形，为下一帧做准备
-
-            # ================================= #
-            # ================================= #
-            # ================================= #
+            # # ================================= #
+            # # ================================= #
+            # # ================================= #
+            # if len(nextState.shape) == 3:
+            #     if nextState.shape[0] == 3:
+            #         nextState = nextState.transpose(1, 2, 0)
+            #
+            # # 显示图像
+            # plt.imshow(nextState)
+            # plt.title('Game State', fontsize=14)
+            # plt.xlabel('Width', fontsize=12)
+            # plt.ylabel('Height', fontsize=12)
+            # plt.colorbar(label='Pixel Value')
+            #
+            # plt.tight_layout()
+            # plt.show()
+            # plt.pause(0.001)  # 短暂暂停，让图形显示
+            # plt.clf()  # 清除当前图形，为下一帧做准备
+            #
+            # # ================================= #
+            # # ================================= #
+            # # ================================= #
 
             # 存储经验
             experience = Experience(state, action, reward, nextState, done)
@@ -222,7 +229,12 @@ class DQNAgent:
 
             # 计算目标Q值
             with torch.no_grad():
-                nextQValues = self.targetNetwork(nextStatesTensor).max(1)[0].unsqueeze(1)
+                # nextQValues = self.targetNetwork(nextStatesTensor).max(1)[0].unsqueeze(1)
+                # targetQValues = rewardsTensor + (self.gamma * nextQValues * (1 - donesTensor))
+                # 使用policy网络选择动作
+                nextActions = self.policyNetwork(nextStatesTensor).argmax(1, keepdim=True)
+                # 使用target网络评估Q值
+                nextQValues = self.targetNetwork(nextStatesTensor).gather(1, nextActions)
                 targetQValues = rewardsTensor + (self.gamma * nextQValues * (1 - donesTensor))
 
             # 计算损失
@@ -233,12 +245,16 @@ class DQNAgent:
             loss.backward()
 
             # 梯度裁剪
-            nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), max_norm=1.0)
+            torch.nn.utils.clip_grad_value_(self.policyNetwork.parameters(), 0.1)
 
             self.optimizer.step()
 
             # 更新目标网络
             self._updateTargetNetwork()
+
+            # 更新学习率
+            if self.stepCount % 100 == 0:
+                self.scheduler.step()
 
             return loss.item()
 

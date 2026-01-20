@@ -68,7 +68,14 @@ class CarRacingEnvironment:
 
         try:
             nextState, reward, terminated, truncated, info = self.env.step(action)
-            done = terminated or truncated
+            # 奖励裁剪和缩放
+            if reward < 0:
+                reward = reward * 0.5  # 轻微惩罚
+            else:
+                reward = reward * 2.0  # 增强正奖励
+
+            reward = np.clip(reward, -1.0, 1.0)  # 更严格的裁剪
+
             self.currentState = nextState
             return nextState, reward, terminated, truncated, info
         except Exception as e:
