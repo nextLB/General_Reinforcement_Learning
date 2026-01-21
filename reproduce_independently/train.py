@@ -28,6 +28,7 @@ def DQN_train():
     episode = 0
     # 开始迭代训练
     for episode in range(Config.maxEpisodes):
+
         action = DQNAgentInstance.select_action()
         print(action)
 

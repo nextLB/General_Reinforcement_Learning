@@ -53,6 +53,10 @@ class CarRacingEnv:
     def get_action_space(self):
         return self.environment.action_space.n
 
+    # 处理state为灰度图
+    def preprocess_state_to_gray(self, state):
+        pass
+
 
 
 # 经验缓冲区类
