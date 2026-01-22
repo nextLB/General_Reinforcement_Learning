@@ -159,7 +159,7 @@ class DQNAgent:
                 print(f'episode: {episode}, self.stepCount: {self.stepCount}, averageLoss: {averageLoss}, averageReward: {averageReward}, self.experience.get_current_buffer_size(): {self.experience.get_current_buffer_size()}')
 
 
-            if visualFlag:
+            if visualFlag and self.stepCount % 100 == 0:
                 # 检查是否有键盘事件
                 if plt.get_fignums():  # 检查图形是否还存在
                     try:
@@ -179,7 +179,7 @@ class DQNAgent:
                 ax.set_ylabel('Height')
                 ax.axis('off')
                 plt.draw()
-                plt.pause(0.001)
+                plt.pause(0.0001)
 
         if visualFlag:
             # 关闭图形窗口

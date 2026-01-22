@@ -9,7 +9,7 @@ import torch
 class Config:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     environment = "CarRacing-v3"
-    maxEpisodes = 500
+    maxEpisodes = 1000
     learningRate = 0.0001
     gamma = 0.95
     startExplorationRate = 1.0
@@ -30,7 +30,7 @@ def DQN_train():
     visualFlag = False
     # 开始迭代训练
     for episode in range(Config.maxEpisodes):
-        if (episode+1) % 20 == 0:
+        if (episode+1) % 10 == 0:
             visualFlag = True
         else:
             visualFlag = False
