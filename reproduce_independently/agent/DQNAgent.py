@@ -9,6 +9,7 @@ import math
 import torch
 import torch.optim as optim
 import torch.nn as nn
+import os
 
 
 
@@ -187,4 +188,19 @@ class DQNAgent:
             plt.ioff()
 
         self.env.frameBuffer.clear()
+
+        # 判断下是否要保存模型参数文件下来
+        if episode % self.config.saveModelEpisode:
+            checkpoint = {
+                'episode': episode,
+                'policy_network_state_dict': self.policyNetwork.state_dict(),
+                'target_network_state_dict': self.targetNetwork.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'step_count': self.stepCount,
+            }
+
+            os.makedirs('/home/next_lb/models/DQN_models', exist_ok=True)
+            torch.save(checkpoint, f'/home/next_lb/models/DQN_models/checkpoint_episode.pth')
+            print(f'模型已成功保存至: /home/next_lb/models/DQN_models/checkpoint_episode.pth')
+
 

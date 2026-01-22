@@ -19,6 +19,7 @@ class Config:
     batchSize = 128
     updateTargetNetworkFrequency = 10000
     tau = 0.005
+    saveModelEpisode = 20
 
 
 
@@ -30,10 +31,10 @@ def DQN_train():
     visualFlag = False
     # 开始迭代训练
     for episode in range(Config.maxEpisodes):
-        if (episode+1) % 10 == 0:
-            visualFlag = True
-        else:
-            visualFlag = False
+        # if (episode+1) % 10 == 0:
+        #     visualFlag = True
+        # else:
+        #     visualFlag = False
         DQNAgentInstance.train_one_episode(visualFlag, episode)
 
 
