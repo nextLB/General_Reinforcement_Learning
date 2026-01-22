@@ -16,6 +16,7 @@
 
     pip install opencv-python
 
+    pip install gymnasium[mujoco]
 
 
 

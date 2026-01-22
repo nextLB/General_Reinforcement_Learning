@@ -79,6 +79,8 @@ class DQNAgent:
         for targetParam, policyParam in zip(self.targetNetwork.parameters(), self.policyNetwork.parameters()):
             targetParam.data.copy_(self.config.tau * policyParam.data + (1.0 - self.config.tau) * targetParam.data)
 
+    def hard_update_target_network(self):
+        self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
 
 
     def train_one_episode(self, visualFlag, episode):
@@ -142,7 +144,7 @@ class DQNAgent:
                 loss.backward()
 
                 # 梯度裁剪（防止梯度爆炸）
-                torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), max_norm=10.0)
+                torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), max_norm=1.0)
 
                 self.optimizer.step()
 
@@ -151,6 +153,10 @@ class DQNAgent:
 
                 # 对目标网络进行软更新
                 self.soft_update_target_network()
+
+                # 符合条件进行硬更新
+                if episode % self.config.updateTargetNetworkFrequency == 0:
+                    self.hard_update_target_network()
 
             # 判断本回合是否结束
             done = terminated or truncated
@@ -190,7 +196,7 @@ class DQNAgent:
         self.env.frameBuffer.clear()
 
         # 判断下是否要保存模型参数文件下来
-        if episode % self.config.saveModelEpisode:
+        if episode % self.config.saveModelEpisode == 0:
             checkpoint = {
                 'episode': episode,
                 'policy_network_state_dict': self.policyNetwork.state_dict(),
