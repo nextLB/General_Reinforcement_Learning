@@ -27,6 +27,8 @@ class CarRacingEnv:
         state, info = self.environment.reset()  # 返回初始状态和info
         self.state = copy.deepcopy(state)
         self.info = copy.deepcopy(info)
+        # 将帧加入队列
+        self.frameBuffer.append(self.state)
         return state, info
 
     def step(self, action):
@@ -36,32 +38,56 @@ class CarRacingEnv:
         self.terminated = copy.deepcopy(terminated)
         self.truncated = copy.deepcopy(truncated)
         self.info = copy.deepcopy(info)
+        # 将帧加入队列
+        self.frameBuffer.append(self.state)
         return nextState, reward, terminated, truncated, info
 
     # 进行帧堆叠
     def stack_frames(self):
         # 如果帧数不足，就用最后一帧补全
         if len(self.frameBuffer) != self.frameStacks:
-            tempFramesList = list(self.frameBuffer)
-            while len(tempFramesList) < self.frameStacks:
-                tempFramesList.append(tempFramesList[-1] if tempFramesList else np.zeros_like(tempFramesList[0]))
-            return np.concatenate(tempFramesList, axis=-1)
+            while len(self.frameBuffer) < self.frameStacks:
+                self.frameBuffer.append(self.frameBuffer[-1] if self.frameBuffer else np.zeros_like(self.frameBuffer[0]))
+            return self.frameBuffer
         else:
-            return np.concatenate(self.frameBuffer, axis=-1)
+            return self.frameBuffer
 
     # 获取其动作空间大小
     def get_action_space(self):
+        # 关于CarRacing-v3的动作空间解析
+        # 0 无操作
+        # 1 左转(也可能是右转)
+        # 2 右转(也可能是左转)
+        # 3 踩油门(加速)
+        # 4 踩刹车(减速)
+
         return self.environment.action_space.n
 
     # 处理state为灰度图
     def preprocess_state_to_gray(self, state):
-        pass
+
+        grayState = state
+        # 如果状态是RGB图像，使用标准灰度转换公式
+        if len(state.shape) == 3 and state.shape[-1] == 3:      # [H, W, 3]
+            # 使用标准灰度转换公式: Y = 0.299R + 0.587G + 0.114B
+            grayState = 0.299 * state[:, :, 0] + 0.587 * state[:, :, 1] + 0.114 * state[:, :, 2]
+        elif len(state.shape) == 4 and state.shape[-1] == 3:    # [B, H, W, 3]
+            grayState = 0.299 * state[:, :, :, 0] + 0.587 * state[:, :, :, 1] + 0.114 * state[:, :, :, 2]
+
+        if len(grayState.shape) == 2:
+            grayState = np.expand_dims(grayState, axis=0)
+
+        return grayState.astype(state.dtype)
 
 
 
 # 经验缓冲区类
 class CarRacingExperienceBuffer:
-    def __init__(self):
-        pass
+    def __init__(self, playBackBuffer):
+        self.playBackBufferSize = playBackBuffer
+        self.experienceBuffer = deque(maxlen=self.playBackBufferSize)
 
+    # 将经验存放入经验池
+    def push(self, nextState, reward, terminated, truncated, info):
+        self.experienceBuffer.append((nextState, reward, terminated, truncated, info))
 
