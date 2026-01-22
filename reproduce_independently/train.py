@@ -15,7 +15,7 @@ class Config:
     startExplorationRate = 1.0
     endExplorationRate = 0.01
     explorationDecaySteps = 10000
-    playBackBuffer = 50000
+    playBackBuffer = 30000
     batchSize = 32
     updateTargetNetworkFrequency = 50
 

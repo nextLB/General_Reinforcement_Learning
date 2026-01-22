@@ -3,6 +3,7 @@ import copy
 import gymnasium as gym
 from collections import deque
 import numpy as np
+import random
 
 # 环境类
 class CarRacingEnv:
@@ -88,6 +89,22 @@ class CarRacingExperienceBuffer:
         self.experienceBuffer = deque(maxlen=self.playBackBufferSize)
 
     # 将经验存放入经验池
-    def push(self, nextState, reward, terminated, truncated, info):
-        self.experienceBuffer.append((nextState, reward, terminated, truncated, info))
+    def push(self, state, nextState, reward, terminated, truncated, info, action, done):
+        self.experienceBuffer.append((state, nextState, reward, terminated, truncated, info, action, done))
 
+    def get_current_buffer_size(self):
+        return len(self.experienceBuffer)
+
+    def sample_experience(self, batchSize):
+        # 随机索引选取
+        indices = random.sample(range(len(self.experienceBuffer)), batchSize)
+        # 提取批次数据
+        batch = [self.experienceBuffer[i] for i in indices]
+        # 分离数据
+        states = np.array([exp[0] for exp in batch])
+        nextStates = np.array([exp[1] for exp in batch])
+        rewards = np.array([exp[2] for exp in batch])
+        actions = np.array([exp[6] for exp in batch])
+        dones = np.array([exp[7] for exp in batch])
+
+        return states, nextStates, actions, rewards, dones

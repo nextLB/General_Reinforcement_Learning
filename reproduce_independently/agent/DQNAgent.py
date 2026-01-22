@@ -7,8 +7,8 @@ from reproduce_independently.network.DQN import DQNNetWork
 import matplotlib.pyplot as plt
 import math
 import torch
-
-
+import torch.optim as optim
+import torch.nn as nn
 
 
 
@@ -40,6 +40,14 @@ class DQNAgent:
         self.policyNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
         # 初始化目标网络
         self.targetNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
+        # 定义优化器
+        self.optimizer = optim.Adam(
+            self.policyNetwork.parameters(),
+            lr=self.config.learningRate
+        )
+        # 定义损失函数
+        self.lossFn = nn.SmoothL1Loss()
+
 
         self.stepCount = 0
 
@@ -69,47 +77,104 @@ class DQNAgent:
     def train_one_episode(self):
         state, info = self.env.reset()
         done = False
+        averageLoss = 0
+        averageReward = 0
 
-        # 初始化画布
-        plt.ion()
-        fig, ax = plt.subplots(figsize=(8, 6))
+        # # 初始化画布
+        # plt.ion()
+        # fig, ax = plt.subplots(figsize=(8, 6))
         while not done:
-
-            # 检查是否有键盘事件
-            if plt.get_fignums():  # 检查图形是否还存在
-                try:
-                    # 检查是否按下了Q键
-                    if plt.waitforbuttonpress(0.001):
-                        key = plt.gcf().canvas.key_press_event.key
-                        if key == 'q':
-                            print("Q pressed: Stopping episode")
-                            break
-                except:
-                    pass  # 忽略事件处理中的异常
 
             # 获取动作
             action = self.select_action()
             # 作用于环境并获取返回结果
             nextState, reward, terminated, truncated, info = self.env.step(action)
-            self.state = copy.deepcopy(nextState)
-            # 存放如经验区
-            self.experience.push(nextState, reward, terminated, truncated, info)
+            averageReward += reward
+            averageReward /= self.stepCount
 
-            # 可视化图像
-            im = ax.imshow(nextState)
-            ax.set_title('State')
-            ax.set_xlabel('Width')
-            ax.set_ylabel('Height')
-            ax.axis('off')
-            plt.draw()
-            plt.pause(0.001)
+            # 存放经验到缓冲区
+            self.experience.push(self.state, nextState, reward, terminated, truncated, info, action, done)
+            self.state = copy.deepcopy(nextState)
+
+            # 接下来如果符合条件的话，进行模型的更新
+            if self.experience.get_current_buffer_size() >= self.config.playBackBuffer:
+                states, nextStates, actions, rewards, dones = self.experience.sample_experience(self.config.batchSize)
+                # 转换为灰度图，以通过模型网络
+                stateTensors = []
+                nextStateTensors = []
+                for i in range(len(states)):
+                    stateTensors.append(self.env.preprocess_state_to_gray(states[i]))
+                    nextStateTensors.append(self.env.preprocess_state_to_gray(nextStates[i]))
+
+                stateTensors = torch.FloatTensor(stateTensors).to(self.config.device)
+                nextStateTensors = torch.FloatTensor(nextStateTensors).to(self.config.device)
+                rewardTensors = torch.FloatTensor(rewards).to(self.config.device).unsqueeze(1)
+                actionTensors = torch.LongTensor(actions).to(self.config.device).unsqueeze(1)
+                doneTensors = torch.FloatTensor(dones).to(self.config.device).unsqueeze(1)
+
+                # 计算当前Q值
+                currentQValues = self.policyNetwork(stateTensors).gather(1, actionTensors)
+
+                # 计算目标的Q值
+                with torch.no_grad():
+                    # 使用策略网络选择动作
+                    nextActions = self.policyNetwork(nextStateTensors).argmax(1).unsqueeze(1)
+                    # 计算下一个状态的最大Q值
+                    nextQValues = self.targetNetwork(nextStateTensors).gather(1, nextActions)
+                    # 计算目标Q值
+                    targetQValues = rewardTensors + (self.config.gamma * nextQValues * (1 - doneTensors))
+
+                # 计算损失  目前是Huber loss
+                loss = self.lossFn(currentQValues, targetQValues)
+
+                # 反向传播优化
+                self.optimizer.zero_grad()
+                loss.backward()
+
+                # 梯度裁剪（防止梯度爆炸）
+                torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), max_norm=10.0)
+
+                self.optimizer.step()
+
+                averageLoss += loss.item()
+                averageLoss /= self.stepCount
+
+            else:
+                print(self.experience.get_current_buffer_size())
 
             # 判断本回合是否结束
             done = terminated or truncated
 
-        # 关闭图形窗口
-        plt.close(fig)
-        plt.ioff()
+
+            if self.stepCount % 100 == 0:
+                print(f'averageLoss: {averageLoss}, averageReward: {averageReward}')
+
+
+            # # 检查是否有键盘事件
+            # if plt.get_fignums():  # 检查图形是否还存在
+            #     try:
+            #         # 检查是否按下了Q键
+            #         if plt.waitforbuttonpress(0.001):
+            #             key = plt.gcf().canvas.key_press_event.key
+            #             if key == 'q':
+            #                 print("Q pressed: Stopping episode")
+            #                 break
+            #     except:
+            #         pass  # 忽略事件处理中的异常
+
+            # # 可视化图像
+            # im = ax.imshow(nextState)
+            # ax.set_title('State')
+            # ax.set_xlabel('Width')
+            # ax.set_ylabel('Height')
+            # ax.axis('off')
+            # plt.draw()
+            # plt.pause(0.001)
+
+
+        # # 关闭图形窗口
+        # plt.close(fig)
+        # plt.ioff()
 
         self.env.frameBuffer.clear()
 
