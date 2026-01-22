@@ -200,7 +200,7 @@ class DQNAgent:
                 ax.set_ylabel('Height')
                 ax.axis('off')
                 plt.draw()
-                plt.pause(0.0001)
+                plt.pause(0.00001)
 
         if visualFlag:
             # 关闭图形窗口
