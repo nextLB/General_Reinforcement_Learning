@@ -93,8 +93,8 @@ class DQNAgent:
         self.stepCount = 0
         state, info = self.env.reset()
         done = False
-        averageLoss = 0
-        averageReward = 0
+        totalLoss = 0
+        totalReward = 0
 
         if visualFlag:
             # 初始化画布
@@ -108,8 +108,7 @@ class DQNAgent:
             action = self.select_action()
             # 作用于环境并获取返回结果
             nextState, reward, terminated, truncated, info = self.env.step(action)
-            averageReward += reward
-            averageReward /= self.stepCount
+            totalReward += reward
             # 获取作用过后的堆叠帧
             self.nextStateFrames = copy.deepcopy(self.env.stack_frames())
 
@@ -117,7 +116,7 @@ class DQNAgent:
             self.experience.push(self.stateFrames, self.nextStateFrames, reward, terminated, truncated, info, action, done)
 
             # 接下来如果符合条件的话，进行模型的更新
-            if self.experience.get_current_buffer_size() >= self.config.playBackBuffer:
+            if self.experience.get_current_buffer_size() >= (self.config.playBackBuffer / 10):
                 states, nextStates, actions, rewards, dones = self.experience.sample_experience(self.config.batchSize)
                 # 转换为灰度图，以通过模型网络
                 stateTensors = []
@@ -162,8 +161,7 @@ class DQNAgent:
 
                 self.optimizer.step()
 
-                averageLoss += loss.item()
-                averageLoss /= self.stepCount
+                totalLoss += loss.item()
 
                 # 对目标网络进行软更新
                 self.soft_update_target_network()
@@ -177,7 +175,7 @@ class DQNAgent:
 
 
             if self.stepCount % 100 == 0:
-                print(f'episode: {episode}, self.stepCount: {self.stepCount}, averageLoss: {averageLoss}, averageReward: {averageReward}, self.experience.get_current_buffer_size(): {self.experience.get_current_buffer_size()}')
+                print(f'episode: {episode}, self.stepCount: {self.stepCount}, totalLoss: {totalLoss}, totalReward: {totalReward}, self.experience.get_current_buffer_size(): {self.experience.get_current_buffer_size()}')
 
 
             if visualFlag and self.stepCount % 100 == 0:
@@ -206,6 +204,11 @@ class DQNAgent:
             # 关闭图形窗口
             plt.close(fig)
             plt.ioff()
+
+        averageLoss = totalLoss / self.stepCount
+        averageReward = totalReward / self.stepCount
+
+        print(f'averageLoss: {averageLoss}, averageReward: {averageReward}')
 
         self.env.frameBuffer.clear()
 

@@ -15,7 +15,7 @@ class Config:
     gamma = 0.99
     startExplorationRate = 1.0
     endExplorationRate = 0.01
-    explorationDecaySteps = 10000
+    explorationDecaySteps = 5000
     playBackBuffer = 30000
     batchSize = 16
     updateTargetNetworkFrequency = 50
