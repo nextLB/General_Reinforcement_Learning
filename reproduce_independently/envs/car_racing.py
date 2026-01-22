@@ -13,7 +13,8 @@ class CarRacingEnv:
             render_mode="rgb_array",
             lap_complete_percent=0.95,
             domain_randomize=False,
-            continuous=False
+            continuous=False,
+            max_episode_steps=999999999
         )
         self.frameStacks = frameStacks
         self.frameBuffer = deque(maxlen=self.frameStacks)
@@ -74,9 +75,6 @@ class CarRacingEnv:
             grayState = 0.299 * state[:, :, 0] + 0.587 * state[:, :, 1] + 0.114 * state[:, :, 2]
         elif len(state.shape) == 4 and state.shape[-1] == 3:    # [B, H, W, 3]
             grayState = 0.299 * state[:, :, :, 0] + 0.587 * state[:, :, :, 1] + 0.114 * state[:, :, :, 2]
-
-        # if len(grayState.shape) == 2:
-        #     grayState = np.expand_dims(grayState, axis=0)
 
         return grayState.astype(state.dtype)
 
