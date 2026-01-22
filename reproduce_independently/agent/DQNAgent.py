@@ -40,6 +40,7 @@ class DQNAgent:
         self.policyNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
         # 初始化目标网络
         self.targetNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
+        self.targetNetwork.eval()
         # 定义优化器
         self.optimizer = optim.Adam(
             self.policyNetwork.parameters(),
@@ -56,7 +57,7 @@ class DQNAgent:
     def select_action(self):
 
         # 计算当前ε值（指数衰减）
-        epsThreshold = self.config.startExplorationRate + (self.config.startExplorationRate - self.config.endExplorationRate) * math.exp(-1. * self.stepCount / self.config.explorationDecaySteps)
+        epsThreshold = self.config.endExplorationRate + (self.config.startExplorationRate - self.config.endExplorationRate) * math.exp(-1. * self.stepCount / self.config.explorationDecaySteps)
 
         # 以ε概率随机选择动作，否则选择最优动作
         if random.random() > epsThreshold:
@@ -73,16 +74,24 @@ class DQNAgent:
         self.stepCount += 1
         return self.action
 
+    def soft_update_target_network(self):
+        for targetParam, policyParam in zip(self.targetNetwork.parameters(), self.policyNetwork.parameters()):
+            targetParam.data.copy_(self.config.tau * policyParam.data + (1.0 - self.config.tau) * targetParam.data)
 
-    def train_one_episode(self):
+
+
+    def train_one_episode(self, visualFlag, episode):
+        self.stepCount = 0
         state, info = self.env.reset()
         done = False
         averageLoss = 0
         averageReward = 0
 
-        # # 初始化画布
-        # plt.ion()
-        # fig, ax = plt.subplots(figsize=(8, 6))
+        if visualFlag:
+            # 初始化画布
+            plt.ion()
+            fig, ax = plt.subplots(figsize=(8, 6))
+
         while not done:
 
             # 获取动作
@@ -139,42 +148,43 @@ class DQNAgent:
                 averageLoss += loss.item()
                 averageLoss /= self.stepCount
 
-            else:
-                print(self.experience.get_current_buffer_size())
+                # 对目标网络进行软更新
+                self.soft_update_target_network()
 
             # 判断本回合是否结束
             done = terminated or truncated
 
 
             if self.stepCount % 100 == 0:
-                print(f'averageLoss: {averageLoss}, averageReward: {averageReward}')
+                print(f'episode: {episode}, self.stepCount: {self.stepCount}, averageLoss: {averageLoss}, averageReward: {averageReward}, self.experience.get_current_buffer_size(): {self.experience.get_current_buffer_size()}')
 
 
-            # # 检查是否有键盘事件
-            # if plt.get_fignums():  # 检查图形是否还存在
-            #     try:
-            #         # 检查是否按下了Q键
-            #         if plt.waitforbuttonpress(0.001):
-            #             key = plt.gcf().canvas.key_press_event.key
-            #             if key == 'q':
-            #                 print("Q pressed: Stopping episode")
-            #                 break
-            #     except:
-            #         pass  # 忽略事件处理中的异常
+            if visualFlag:
+                # 检查是否有键盘事件
+                if plt.get_fignums():  # 检查图形是否还存在
+                    try:
+                        # 检查是否按下了Q键
+                        if plt.waitforbuttonpress(0.001):
+                            key = plt.gcf().canvas.key_press_event.key
+                            if key == 'q':
+                                print("Q pressed: Stopping episode")
+                                break
+                    except:
+                        pass  # 忽略事件处理中的异常
 
-            # # 可视化图像
-            # im = ax.imshow(nextState)
-            # ax.set_title('State')
-            # ax.set_xlabel('Width')
-            # ax.set_ylabel('Height')
-            # ax.axis('off')
-            # plt.draw()
-            # plt.pause(0.001)
+                # 可视化图像
+                im = ax.imshow(nextState)
+                ax.set_title('State')
+                ax.set_xlabel('Width')
+                ax.set_ylabel('Height')
+                ax.axis('off')
+                plt.draw()
+                plt.pause(0.001)
 
-
-        # # 关闭图形窗口
-        # plt.close(fig)
-        # plt.ioff()
+        if visualFlag:
+            # 关闭图形窗口
+            plt.close(fig)
+            plt.ioff()
 
         self.env.frameBuffer.clear()
 

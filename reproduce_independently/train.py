@@ -16,8 +16,9 @@ class Config:
     endExplorationRate = 0.01
     explorationDecaySteps = 10000
     playBackBuffer = 30000
-    batchSize = 32
-    updateTargetNetworkFrequency = 50
+    batchSize = 128
+    updateTargetNetworkFrequency = 10000
+    tau = 0.005
 
 
 
@@ -26,9 +27,14 @@ def DQN_train():
     DQNAgentInstance = DQNAgent(Config)
 
     episode = 0
+    visualFlag = False
     # 开始迭代训练
     for episode in range(Config.maxEpisodes):
-        DQNAgentInstance.train_one_episode()
+        if (episode+1) % 20 == 0:
+            visualFlag = True
+        else:
+            visualFlag = False
+        DQNAgentInstance.train_one_episode(visualFlag, episode)
 
 
 def main():
