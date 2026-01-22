@@ -10,6 +10,7 @@ class Config:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     environment = "CarRacing-v3"
     maxEpisodes = 1000
+    frameStacks = 4
     learningRate = 0.00001
     gamma = 0.99
     startExplorationRate = 1.0

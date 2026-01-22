@@ -18,19 +18,18 @@ class DQNAgent:
         self.config = config
         # 初始化环境实例与相应的经验缓冲区实例
         if self.config.environment == "CarRacing-v3":
-            self.env = CarRacingEnv(self.config.batchSize)
+            self.env = CarRacingEnv(self.config.frameStacks)
             self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
             state, info = self.env.reset()
         else:
-            self.env = CarRacingEnv(self.config.batchSize)
+            self.env = CarRacingEnv(self.config.frameStacks)
             self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
             state, info = self.env.reset()
 
         # 原始通道形状
-        self.state = copy.deepcopy(state)
         self.imageShape = state.shape
         # 灰度图通道形状
-        self.grayImageShape = (state.shape[0], state.shape[1], 1)
+        self.grayImageShape = (state.shape[0], state.shape[1], self.config.frameStacks)
 
         # 进行动作的相关信息初始化
         self.actionSpaceNumber = self.env.get_action_space()
@@ -53,6 +52,9 @@ class DQNAgent:
 
         self.stepCount = 0
 
+        self.stateFrames = []
+        self.nextStateFrames = []
+
 
 
     def select_action(self):
@@ -62,12 +64,16 @@ class DQNAgent:
 
         # 以ε概率随机选择动作，否则选择最优动作
         if random.random() > epsThreshold:
-            grayState = self.env.preprocess_state_to_gray(self.state)
-            grayStateTensor = torch.FloatTensor(grayState).to(self.config.device).unsqueeze(0)
+            grayStates = self.env.stack_frames()
+            grayList = []
+            for i in range(len(grayStates)):
+                grayList.append(self.env.preprocess_state_to_gray(grayStates[i]))
+            grayStateTensors = torch.FloatTensor(grayList).to(self.config.device).unsqueeze(0)
             # 获取其Q值
-            qValues = self.policyNetwork(grayStateTensor)
+            qValues = self.policyNetwork(grayStateTensors)
             # 选择最大Q值对应的动作
             self.action = qValues.max(1)[1].item()
+
         # 随机选择动作
         else:
             self.action = random.randint(0, self.actionSpaceNumber - 1)
@@ -96,17 +102,19 @@ class DQNAgent:
             fig, ax = plt.subplots(figsize=(8, 6))
 
         while not done:
-
+            # 获取当前的堆叠帧
+            self.stateFrames = copy.deepcopy(self.env.stack_frames())
             # 获取动作
             action = self.select_action()
             # 作用于环境并获取返回结果
             nextState, reward, terminated, truncated, info = self.env.step(action)
             averageReward += reward
             averageReward /= self.stepCount
+            # 获取作用过后的堆叠帧
+            self.nextStateFrames = copy.deepcopy(self.env.stack_frames())
 
             # 存放经验到缓冲区
-            self.experience.push(self.state, nextState, reward, terminated, truncated, info, action, done)
-            self.state = copy.deepcopy(nextState)
+            self.experience.push(self.stateFrames, self.nextStateFrames, reward, terminated, truncated, info, action, done)
 
             # 接下来如果符合条件的话，进行模型的更新
             if self.experience.get_current_buffer_size() >= self.config.playBackBuffer:
@@ -115,14 +123,20 @@ class DQNAgent:
                 stateTensors = []
                 nextStateTensors = []
                 for i in range(len(states)):
-                    stateTensors.append(self.env.preprocess_state_to_gray(states[i]))
-                    nextStateTensors.append(self.env.preprocess_state_to_gray(nextStates[i]))
+                    tempStateList = []
+                    tempNextStateList = []
+                    for j in range(len(states[i])):
+                        tempStateList.append(self.env.preprocess_state_to_gray(states[i][j]))
+                        tempNextStateList.append(self.env.preprocess_state_to_gray(nextStates[i][j]))
+                    stateTensors.append(copy.deepcopy(tempStateList))
+                    nextStateTensors.append(copy.deepcopy(tempNextStateList))
 
                 stateTensors = torch.FloatTensor(stateTensors).to(self.config.device)
                 nextStateTensors = torch.FloatTensor(nextStateTensors).to(self.config.device)
                 rewardTensors = torch.FloatTensor(rewards).to(self.config.device).unsqueeze(1)
                 actionTensors = torch.LongTensor(actions).to(self.config.device).unsqueeze(1)
                 doneTensors = torch.FloatTensor(dones).to(self.config.device).unsqueeze(1)
+
 
                 # 计算当前Q值
                 currentQValues = self.policyNetwork(stateTensors).gather(1, actionTensors)

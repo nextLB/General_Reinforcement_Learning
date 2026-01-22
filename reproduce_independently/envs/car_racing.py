@@ -75,8 +75,8 @@ class CarRacingEnv:
         elif len(state.shape) == 4 and state.shape[-1] == 3:    # [B, H, W, 3]
             grayState = 0.299 * state[:, :, :, 0] + 0.587 * state[:, :, :, 1] + 0.114 * state[:, :, :, 2]
 
-        if len(grayState.shape) == 2:
-            grayState = np.expand_dims(grayState, axis=0)
+        # if len(grayState.shape) == 2:
+        #     grayState = np.expand_dims(grayState, axis=0)
 
         return grayState.astype(state.dtype)
 
