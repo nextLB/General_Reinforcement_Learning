@@ -118,6 +118,7 @@ import sys
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 from reproduce_independently.train import Config
 from reproduce_independently.envs.car_racing import CarRacingEnv
+from reproduce_independently.envs.pong_no_frameskip import PongEnv
 from reproduce_independently.network.DQN import DQNNetWork
 import torch
 import matplotlib.pyplot as plt

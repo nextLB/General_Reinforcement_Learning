@@ -3,6 +3,7 @@ import sys
 import copy
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 from reproduce_independently.envs.car_racing import CarRacingEnv, CarRacingExperienceBuffer
+from reproduce_independently.envs.pong_no_frameskip import PongEnv, PongExperienceBuffer
 from reproduce_independently.network.DQN import DQNNetWork
 import matplotlib.pyplot as plt
 import math
@@ -20,6 +21,10 @@ class DQNAgent:
         if self.config.environment == "CarRacing-v3":
             self.env = CarRacingEnv(self.config.frameStacks)
             self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
+            state, info = self.env.reset()
+        elif self.config.environment == "PongNoFrameskip-v4":
+            self.env = PongEnv(self.config.frameStacks)
+            self.experience = PongExperienceBuffer(self.config.playBackBuffer)
             state, info = self.env.reset()
         else:
             self.env = CarRacingEnv(self.config.frameStacks)
