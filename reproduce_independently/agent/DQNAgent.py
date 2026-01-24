@@ -236,8 +236,8 @@ class DQNAgent:
                 'step_count': self.stepCount,
             }
 
-            os.makedirs('/home/next_lb/models/DQN_models', exist_ok=True)
-            torch.save(checkpoint, f'/home/next_lb/models/DQN_models/checkpoint_episode.pth')
+            os.makedirs(f'/home/next_lb/models/DQN_models/{self.config.environment}', exist_ok=True)
+            torch.save(checkpoint, f'/home/next_lb/models/DQN_models/{self.config.environment}/checkpoint_episode.pth')
             print(f'模型已成功保存至: /home/next_lb/models/DQN_models/checkpoint_episode.pth')
 
 
