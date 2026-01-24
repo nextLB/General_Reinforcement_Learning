@@ -48,6 +48,13 @@ class DQNAgent:
         )
         # 定义损失函数
         self.lossFn = nn.SmoothL1Loss()
+        # 定义学习率调度器
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer,
+            mode='min',     # 监控loss下降
+            factor=0.5,     # 每次降低为原来的一半
+            patience=5,     # 连续5个episode loss不下降就降低
+        )
 
 
         self.stepCount = 0
@@ -174,7 +181,7 @@ class DQNAgent:
             done = terminated or truncated
 
 
-            if self.stepCount % 100 == 0:
+            if self.stepCount % 1000 == 0:
                 print(f'episode: {episode}, self.stepCount: {self.stepCount}, totalLoss: {totalLoss}, totalReward: {totalReward}, self.experience.get_current_buffer_size(): {self.experience.get_current_buffer_size()}')
 
 
@@ -207,6 +214,8 @@ class DQNAgent:
 
         averageLoss = totalLoss / self.stepCount
         averageReward = totalReward / self.stepCount
+        # 学习率的步入
+        self.scheduler.step(averageLoss)
 
         print(f'averageLoss: {averageLoss}, averageReward: {averageReward}')
 

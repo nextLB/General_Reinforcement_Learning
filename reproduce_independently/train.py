@@ -11,13 +11,13 @@ class Config:
     environment = "CarRacing-v3"
     maxEpisodes = 1000
     frameStacks = 4
-    learningRate = 0.00001
-    gamma = 0.99
+    learningRate = 1e-5
+    gamma = 0.95
     startExplorationRate = 1.0
     endExplorationRate = 0.01
     explorationDecaySteps = 5000
-    playBackBuffer = 30000
-    batchSize = 16
+    playBackBuffer = 50000
+    batchSize = 8
     updateTargetNetworkFrequency = 50
     tau = 0.005
     saveModelEpisode = 20

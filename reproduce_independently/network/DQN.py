@@ -141,10 +141,7 @@ class DQNNetWork(nn.Module):
 
             return dummyOutput.shape[1]
 
-
-
     def _initializeWeights(self):
-        """初始化网络权重"""
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -154,7 +151,8 @@ class DQNNetWork(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+                # 减小初始化范围
+                nn.init.xavier_uniform_(m.weight, gain=0.01)  # 使用更小的gain
                 nn.init.constant_(m.bias, 0)
 
 
