@@ -8,7 +8,8 @@ import torch
 
 class Config:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    environment = "CarRacing-v3"
+    # environment = "CarRacing-v3"
+    environment = "PongNoFrameskip-v4"
     maxEpisodes = 1000
     frameStacks = 4
     learningRate = 1e-5

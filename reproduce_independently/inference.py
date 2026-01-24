@@ -192,8 +192,78 @@ def CarRacingDQNInference():
     print('Over!')
 
 
+
+def PongDQNInference():
+    # 初始化环境类
+    PongEnvInstance = PongEnv(Config.frameStacks)
+    state, info = PongEnvInstance.reset()
+    # 灰度图通道形状
+    grayImageShape = (state.shape[0], state.shape[1], Config.frameStacks)
+    actionSpaceNumber = PongEnvInstance.get_action_space()
+    # 初始化网络模型
+    DQNNetWorkInstance = DQNNetWork(grayImageShape, actionSpaceNumber)
+    checkpointPath = '/home/next_lb/models/DQN_models/checkpoint_episode.pth'
+    checkpoint = torch.load(checkpointPath, map_location=Config.device)
+
+    # 加载策略网络权重
+    DQNNetWorkInstance.load_state_dict(checkpoint['policy_network_state_dict'])
+    DQNNetWorkInstance.to(Config.device)
+    DQNNetWorkInstance.eval()
+
+    # 初始化画布
+    plt.ion()
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    done = False
+    while not done:
+        frameSates = PongEnvInstance.stack_frames()
+        grayList = []
+        for i in range(len(frameSates)):
+            grayList.append(PongEnvInstance.preprocess_state_to_gray(frameSates[i]))
+        grayStateTensors = torch.FloatTensor(grayList).to(Config.device).unsqueeze(0)
+        # 获取其Q值
+        qValues = DQNNetWorkInstance(grayStateTensors)
+        # 选择最大Q值对应的动作
+        action = qValues.max(1)[1].item()
+        # 作用于环境并获取返回结果
+        nextState, reward, terminated, truncated, info = PongEnvInstance.step(action)
+
+        # 判断本回合是否结束
+        done = terminated or truncated
+
+        # 检查是否有键盘事件
+        if plt.get_fignums():  # 检查图形是否还存在
+            try:
+                # 检查是否按下了Q键
+                if plt.waitforbuttonpress(0.001):
+                    key = plt.gcf().canvas.key_press_event.key
+                    if key == 'q':
+                        print("Q pressed: Stopping episode")
+                        break
+            except:
+                pass  # 忽略事件处理中的异常
+
+        # 可视化图像
+        im = ax.imshow(nextState)
+        ax.set_title('State')
+        ax.set_xlabel('Width')
+        ax.set_ylabel('Height')
+        ax.axis('off')
+        plt.draw()
+        plt.pause(0.00001)
+        print(f'action: {action}')
+
+    # 关闭图形窗口
+    plt.close(fig)
+    plt.ioff()
+
+    print('Over!')
+
+
+
 def main():
-    CarRacingDQNInference()
+    # CarRacingDQNInference()
+    PongDQNInference()
 
 
 if __name__ == '__main__':
