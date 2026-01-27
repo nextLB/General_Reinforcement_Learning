@@ -14,7 +14,7 @@ class PNFSV4Environment:
     def __init__(self, config):
         self.environmentName = "PongNoFrameskip-v4"
         self.config = config
-        self.env = gym.make(self.config.environmentName, render_mode='rgb_array')
+        self.env = gym.make(self.config.environmentName, render_mode='rgb_array', max_episode_steps=999999999)
 
 
     # 对于Pong游戏的图像帧进行预处理
