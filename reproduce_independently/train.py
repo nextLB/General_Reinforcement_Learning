@@ -32,12 +32,14 @@ class TrainingConfig:
     version: str = "V1.2"
     environmentName: str = "PongNoFrameskip-v4"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    imageShape = (1, 160, 210)
+    numActions = 0
     learningRate = 0.0001
     trainingEpisodes = 1000
 
     initialEpsilon = 1.0
     finalEpsilon = 0.1
-    epsilonDecaySteps = 50000
+    epsilonDecaySteps = 100000
     replayBufferCapacity = 20000
     discountFactor = 0.99
     targetUpdateFrequency = 1000000
@@ -69,6 +71,12 @@ def DQN_train():
     # ============================================================= #
     # ============================================================= #
     # ============================================================= #
+
+
+
+    # ============================================================= #
+    # ============================================================= #
+    # ============================================================= #
     #                       V1.2                                    #
     os.makedirs(f'/home/next_lb/models/DQN_models/{TrainingConfig.environmentName}', exist_ok=True)
     # 创建配置类
@@ -80,6 +88,15 @@ def DQN_train():
 
     # 初始化DQN Agent
     DQNAgentInstance = DQNAgent(TrainingConfigInstance)
+
+    # 训练统计
+    episodeRewards = []
+    episodeLosses = []
+    movingAverageRewards = []
+    epsilonHistory = []
+    bestAverageReward = -float('inf')
+    for episode in range(TrainingConfigInstance.trainingEpisodes):
+        episodeRewards, episodeLosses, movingAverageRewards, epsilonHistory, bestAverageReward = DQNAgentInstance.V12_train_one_episode(episode, episodeRewards, episodeLosses, movingAverageRewards, epsilonHistory, bestAverageReward)
 
 
 

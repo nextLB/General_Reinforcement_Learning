@@ -3,14 +3,16 @@ import sys
 import copy
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 from reproduce_independently.envs.car_racing import CarRacingEnv, CarRacingExperienceBuffer
-from reproduce_independently.envs.pong_no_frameskip import PNFSV4Environment
-from reproduce_independently.network.DQN import DQNNetWork
+from reproduce_independently.envs.pong_no_frameskip import PNFSV4Environment, PongExperienceBuffer
+from reproduce_independently.network.DQN import DQNNetWork, ResNetDeepQNetwork
 import matplotlib.pyplot as plt
 import math
 import torch
 import torch.optim as optim
 import torch.nn as nn
 import os
+import torch.nn.functional as F
+import numpy as np
 
 
 
@@ -19,7 +21,43 @@ class DQNAgent:
         self.config = config
 
         if self.config.version == "V1.2":
-            print('dadsadasdasdas')
+            if self.config.environmentName == "PongNoFrameskip-v4":
+                self.env = PNFSV4Environment(self.config)
+                # 初始化经验池
+                self.Experience = PongExperienceBuffer(self.config.replayBufferCapacity)
+            else:
+                print('No Do No Die!')
+            self.config.numActions = self.env.actionSpace.n
+            self.policyNetwork = ResNetDeepQNetwork(self.config.imageShape, self.config.numActions).to(
+                self.config.device)
+            self.targetNetwork = ResNetDeepQNetwork(self.config.imageShape, self.config.numActions).to(
+                self.config.device)
+
+            self._updateTargetNetwork()
+            self.targetNetwork.eval()
+
+            # 优化器
+            self.optimizer = optim.Adam(
+                self.policyNetwork.parameters(),
+                lr=self.config.learningRate,
+                eps=1e-4,
+                weight_decay=1e-5  # 添加L2正则化
+            )
+            # 学习率调度器
+            self.scheduler = optim.lr_scheduler.StepLR(
+                self.optimizer,
+                step_size=self.config.lr_decay_steps,
+                gamma=0.5
+            )
+            # 训练状态
+            self.stepsCompleted = 0
+            self.episodesCompleted = 0
+
+            # 用于Double DQN
+            self.last_loss = 0.0
+
+
+
             return
         else:
             # 初始化环境实例与相应的经验缓冲区实例
@@ -68,6 +106,14 @@ class DQNAgent:
             self.stateFrames = []
             self.nextStateFrames = []
 
+            return
+
+
+
+    # ============================================================= #
+    # ============================================================= #
+    # ============================================================= #
+    #                       V1.1                                    #
 
 
     def select_action(self):
@@ -241,4 +287,192 @@ class DQNAgent:
             torch.save(checkpoint, f'/home/next_lb/models/DQN_models/{self.config.environment}/checkpoint_episode.pth')
             print(f'模型已成功保存至: /home/next_lb/models/DQN_models/checkpoint_episode.pth')
 
+    # ============================================================= #
+    # ============================================================= #
+    # ============================================================= #
 
+
+
+    # ============================================================= #
+    # ============================================================= #
+    # ============================================================= #
+    #                       V1.2                                    #
+
+    def _updateTargetNetwork(self) -> None:
+        """更新目标网络参数"""
+        # 硬更新
+        self.targetNetwork.load_state_dict(self.policyNetwork.state_dict())
+
+        # 或者使用软更新（更稳定）
+        target_net_state_dict = self.targetNetwork.state_dict()
+        policy_net_state_dict = self.policyNetwork.state_dict()
+
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key] * self.config.tau + \
+                                         target_net_state_dict[key] * (1 - self.config.tau)
+        self.targetNetwork.load_state_dict(target_net_state_dict)
+
+
+
+    def selectAction(self, state):
+        randomValue = random.random()
+        epsilon = self._calculateCurrentEpsilon()
+
+        self.stepsCompleted += 1
+        if randomValue > epsilon:
+            with torch.no_grad():
+                qValues = self.policyNetwork(state)
+                return qValues.max(1)[1].item()
+        else:
+            return random.randrange(self.config.numActions)
+
+    def _calculateCurrentEpsilon(self) -> float:
+        """计算当前的epsilon值"""
+        return self.config.finalEpsilon + (self.config.initialEpsilon - self.config.finalEpsilon) * \
+            np.exp(-1.0 * self.stepsCompleted / self.config.epsilonDecaySteps)
+
+    def getCurrentEpsilon(self) -> float:
+        """获取当前epsilon值"""
+        return self._calculateCurrentEpsilon()
+
+    def optimizeModel(self, experience):
+        # 采样
+        states, actions, rewards, next_states, dones = experience.sample(1)
+
+        # 2. 确保数据在正确的设备和数据类型上
+        states = torch.as_tensor(states, dtype=torch.float32, device=self.config.device)
+        actions = torch.as_tensor(actions, dtype=torch.long, device=self.config.device)
+        rewards = torch.as_tensor(rewards, dtype=torch.float32, device=self.config.device)
+        next_states = torch.as_tensor(next_states, dtype=torch.float32, device=self.config.device)
+        dones = torch.as_tensor(dones, dtype=torch.float32, device=self.config.device)
+
+        # 3. 实现Double DQN（减少Q值高估）
+        with torch.no_grad():
+            # 使用policy网络选择动作
+            next_actions = self.policyNetwork(next_states).max(1)[1]
+            # 使用target网络评估Q值
+            next_q_values = self.targetNetwork(next_states).gather(1, next_actions.unsqueeze(1)).squeeze()
+
+            # 计算目标Q值
+            target_q_values = rewards + (self.config.discountFactor * next_q_values * (1 - dones))
+
+        # 4. 计算当前Q值
+        current_q_values = self.policyNetwork(states).gather(1, actions.unsqueeze(1)).squeeze()
+
+        # 5. 计算损失 - 使用Huber loss提高稳定性
+        loss = F.smooth_l1_loss(current_q_values, target_q_values)
+
+        # 6. 反向传播
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        # 7. 梯度裁剪
+        torch.nn.utils.clip_grad_norm_(self.policyNetwork.parameters(), self.config.max_grad_norm)
+
+        # 8. 优化步骤
+        self.optimizer.step()
+
+        # 9. 定期更新目标网络
+        if self.stepsCompleted % self.config.targetUpdateFrequency == 0:
+            self._updateTargetNetwork()
+
+        # 10. 更新学习率
+        if self.stepsCompleted % self.config.lr_decay_steps == 0:
+            self.scheduler.step()
+
+        self.last_loss = loss.item()
+        return loss.item()
+
+
+    def getTrainingStatistics(self) -> dict:
+        """获取训练统计信息"""
+        return {
+            'stepsCompleted': self.stepsCompleted,
+            'episodesCompleted': self.episodesCompleted,
+            'currentEpsilon': self.getCurrentEpsilon(),
+        }
+
+    def saveCheckpoint(self, filePath: str) -> None:
+        """保存模型检查点"""
+        checkpoint = {
+            'policyNetworkState': self.policyNetwork.state_dict(),
+            'targetNetworkState': self.targetNetwork.state_dict(),
+            'optimizerState': self.optimizer.state_dict(),
+            'stepsCompleted': self.stepsCompleted,
+            'episodesCompleted': self.episodesCompleted,
+            'config': self.config
+        }
+        torch.save(checkpoint, filePath)
+
+
+    def V12_train_one_episode(self, episode, episodeRewards, episodeLosses, movingAverageRewards, epsilonHistory, bestAverageReward):
+        state, info = self.env.reset()
+        totalReward = 0.0
+        stepsInEpisode = 0
+        totalLoss = 0.0
+        lossCount = 0
+        loss = 0
+
+        while True:
+            if not isinstance(state, torch.Tensor):
+                state = torch.tensor(state, dtype=torch.float32)
+                state = torch.unsqueeze(state, 0)
+                state = torch.unsqueeze(state, 0)
+            state = state.to(self.config.device)
+            action = self.selectAction(state)
+            # 输入的环境中进行交互，返回信息
+            nextState, reward, done, info = self.env.step(action)
+            # 添加到经验池中
+            self.Experience.push(state, action, reward, nextState, done)
+
+            # 满足一定经验池的数量限制后再进行优化模型
+            if len(self.Experience.buffer) >= self.config.replayBufferCapacity:
+                # 优化模型
+                loss = self.optimizeModel(self.Experience)
+
+            # 统计信息与数据
+            totalLoss += loss
+            lossCount += 1
+            state = nextState
+            totalReward += reward
+            stepsInEpisode += 1
+
+            if done:
+                break
+
+        self.episodesCompleted += 1
+
+
+        # 记录统计信息
+        averageLoss = totalLoss / lossCount if lossCount > 0 else 0.0
+        episodeRewards.append(totalReward)
+        episodeLosses.append(averageLoss)
+        epsilonHistory.append(self.getCurrentEpsilon())
+
+        # 计算移动平均奖励  五十个回合内的
+        if len(episodeRewards) >= 50:
+            movingAverage = np.mean(episodeRewards[-50:])
+        else:
+            movingAverage = np.mean(episodeRewards)
+        movingAverageRewards.append(movingAverage)
+
+        # 保存更新最佳模型
+        if movingAverage > bestAverageReward:
+            bestAverageReward = movingAverage
+            self.saveCheckpoint(
+                f"/home/next_lb/models/DQN_models/{self.config.environmentName}/best_model.pth"
+            )
+
+        # 定期日志输出
+        if episode % 5 == 0:
+            stats = self.getTrainingStatistics()
+            print(
+                f"回合 {episode:4d} | "
+                f"奖励: {totalReward:7.2f} | "
+                f"步数: {stepsInEpisode:4d} | "
+                f"移动平均: {movingAverage:7.2f} | "
+                f"平均损失: {averageLoss:7.4f} | "
+                f"Epsilon: {stats['currentEpsilon']:.3f} | "
+            )
+
+        return episodeRewards, episodeLosses, movingAverageRewards, epsilonHistory, bestAverageReward
