@@ -3,7 +3,7 @@ import sys
 import copy
 sys.path.append('/home/next_lb/桌面/next/General_Reinforcement_Learning')
 from reproduce_independently.envs.car_racing import CarRacingEnv, CarRacingExperienceBuffer
-from reproduce_independently.envs.pong_no_frameskip import PongEnv, PongExperienceBuffer
+from reproduce_independently.envs.pong_no_frameskip import PNFSV4Environment
 from reproduce_independently.network.DQN import DQNNetWork
 import matplotlib.pyplot as plt
 import math
@@ -17,55 +17,56 @@ import os
 class DQNAgent:
     def __init__(self, config):
         self.config = config
-        # 初始化环境实例与相应的经验缓冲区实例
-        if self.config.environment == "CarRacing-v3":
-            self.env = CarRacingEnv(self.config.frameStacks)
-            self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
-            state, info = self.env.reset()
-        elif self.config.environment == "PongNoFrameskip-v4":
-            self.env = PongEnv(self.config.frameStacks)
-            self.experience = PongExperienceBuffer(self.config.playBackBuffer)
-            state, info = self.env.reset()
+
+        if self.config.version == "V1.2":
+            print('dadsadasdasdas')
+            return
         else:
-            self.env = CarRacingEnv(self.config.frameStacks)
-            self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
-            state, info = self.env.reset()
+            # 初始化环境实例与相应的经验缓冲区实例
+            if self.config.environment == "CarRacing-v3":
+                self.env = CarRacingEnv(self.config.frameStacks)
+                self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
+                state, info = self.env.reset()
+            else:
+                self.env = CarRacingEnv(self.config.frameStacks)
+                self.experience = CarRacingExperienceBuffer(self.config.playBackBuffer)
+                state, info = self.env.reset()
 
-        # 原始通道形状
-        self.imageShape = state.shape
-        # 灰度图通道形状
-        self.grayImageShape = (state.shape[0], state.shape[1], self.config.frameStacks)
+            # 原始通道形状
+            self.imageShape = state.shape
+            # 灰度图通道形状
+            self.grayImageShape = (state.shape[0], state.shape[1], self.config.frameStacks)
 
-        # 进行动作的相关信息初始化
-        self.actionSpaceNumber = self.env.get_action_space()
-        self.action = -1
-
-
-        # 初始化策略网络
-        self.policyNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
-        # 初始化目标网络
-        self.targetNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
-        self.targetNetwork.eval()
-        # 定义优化器
-        self.optimizer = optim.Adam(
-            self.policyNetwork.parameters(),
-            lr=self.config.learningRate
-        )
-        # 定义损失函数
-        self.lossFn = nn.SmoothL1Loss()
-        # 定义学习率调度器
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer,
-            mode='min',     # 监控loss下降
-            factor=0.5,     # 每次降低为原来的一半
-            patience=5,     # 连续5个episode loss不下降就降低
-        )
+            # 进行动作的相关信息初始化
+            self.actionSpaceNumber = self.env.get_action_space()
+            self.action = -1
 
 
-        self.stepCount = 0
+            # 初始化策略网络
+            self.policyNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
+            # 初始化目标网络
+            self.targetNetwork = DQNNetWork(self.grayImageShape, self.actionSpaceNumber).to(self.config.device)
+            self.targetNetwork.eval()
+            # 定义优化器
+            self.optimizer = optim.Adam(
+                self.policyNetwork.parameters(),
+                lr=self.config.learningRate
+            )
+            # 定义损失函数
+            self.lossFn = nn.SmoothL1Loss()
+            # 定义学习率调度器
+            self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode='min',     # 监控loss下降
+                factor=0.5,     # 每次降低为原来的一半
+                patience=5,     # 连续5个episode loss不下降就降低
+            )
 
-        self.stateFrames = []
-        self.nextStateFrames = []
+
+            self.stepCount = 0
+
+            self.stateFrames = []
+            self.nextStateFrames = []
 
 
 
