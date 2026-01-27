@@ -337,7 +337,7 @@ class DQNAgent:
 
     def optimizeModel(self, experience):
         # 采样
-        states, actions, rewards, next_states, dones = experience.sample(1)
+        states, actions, rewards, next_states, dones = experience.sample(16)
 
         # 2. 确保数据在正确的设备和数据类型上
         states = torch.as_tensor(states, dtype=torch.float32, device=self.config.device)

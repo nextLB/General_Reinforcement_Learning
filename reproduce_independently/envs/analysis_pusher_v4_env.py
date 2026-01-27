@@ -65,8 +65,12 @@ try:
         # 生成随机动作
         action = env.action_space.sample()
 
+
+
         # 执行动作
         observation, reward, terminated, truncated, info = env.step(action)
+
+        print(action, observation)
 
         # 渲染环境并获取图像
         frame = env.render()

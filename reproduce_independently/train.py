@@ -32,7 +32,7 @@ class TrainingConfig:
     version: str = "V1.2"
     environmentName: str = "PongNoFrameskip-v4"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    imageShape = (1, 160, 210)
+    imageShape = (1, 120, 120)
     numActions = 0
     learningRate = 0.0001
     trainingEpisodes = 1000
@@ -40,7 +40,7 @@ class TrainingConfig:
     initialEpsilon = 1.0
     finalEpsilon = 0.1
     epsilonDecaySteps = 100000
-    replayBufferCapacity = 20000
+    replayBufferCapacity = 30000
     discountFactor = 0.99
     targetUpdateFrequency = 1000000
     tau = 0.01
