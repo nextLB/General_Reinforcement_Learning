@@ -165,11 +165,47 @@ def SAC_train():
                 target_q2_value = target_critic2(next_state, next_action)
                 min_target_q_value = torch.min(target_q1_value, target_q2_value)
 
-                # 目标 Q 值 y = r + Y * (最小目标)
+                # 目标 Q 值 y = r + Y * (最小目标 Q 值 - a * next_log_prob)
+                target_q_value = reward + gamma * (1 - done) * (min_target_q_value - alpha * next_log_prob)
 
+            # Step 3: 更新 Critic 网络
+            # Critic 1 损失
+            current_q1_value = critic1(state, action)
+            critic1_loss = F.mse_loss(current_q1_value, target_q_value)
 
+            # Critic 2 损失
+            current_q2_value = critic2(state, action)
+            critic2_loss = F.mse_loss(current_q2_value, target_q_value)
 
+            # 反向传播并更新 Critic 网络参数
+            critic1_optimizer.zero_grad()
+            critic1_loss.backward()
+            critic1_optimizer.step()
 
+            critic2_optimizer.zero_grad()
+            critic2_loss.backward()
+            critic2_optimizer.step()
+
+            # Step 4: 更新 Actor 网络
+            # 通过 Actor 网络生成新的动作及其 log 概率
+            new_action, log_prob = actor.sample(state)
+
+            # 计算 Actor 的目标损失：L = a * log_prob - Q1(s, π(s))
+            q1_value = critic1(state, new_action)
+            actor_loss = (alpha * log_prob - q1_value).mean()
+
+            # 反向传播并更新 Actor 网络参数
+            actor_optimizer.zero_grad()
+            actor_loss.backward()
+            actor_optimizer.step()
+
+            # Step 5: 软更新目标 Q 网络参数
+            with torch.no_grad():
+                for param, target_param in zip(critic1.parameters(), target_critic1.parameters()):
+                    target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
+
+                for param, target_param in zip(critic2.parameters(), target_critic2.parameters()):
+                    target_param.data.copy_(tau * param.data + (1 - tau) * target_param.data)
 
 
     """
